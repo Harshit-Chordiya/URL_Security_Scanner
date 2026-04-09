@@ -1,0 +1,234 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8"/>
+  <meta name="viewport" content="width=device-width,initial-scale=1.0"/>
+  <title>Security Report — {{ scan_id }}</title>
+  <style>
+    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+    body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+            background: #f1f5f9; color: #1e293b; font-size: 14px; }
+
+    /* Header */
+    .header { background: linear-gradient(135deg, #0f172a 0%, #1e3a5f 100%);
+               color: #fff; padding: 32px 40px; }
+    .header h1 { font-size: 22px; font-weight: 800; letter-spacing: -.3px; }
+    .header p  { color: #94a3b8; margin-top: 6px; font-size: 13px; }
+
+    /* Container */
+    .container { max-width: 1100px; margin: 0 auto; padding: 28px 20px; }
+
+    /* Metric cards */
+    .metrics { display: grid; grid-template-columns: repeat(auto-fit,minmax(120px,1fr));
+                gap: 14px; margin-bottom: 28px; }
+    .metric  { background: #fff; border-radius: 12px; padding: 18px 12px;
+                text-align: center; box-shadow: 0 1px 4px rgba(0,0,0,.07); }
+    .metric .num   { font-size: 30px; font-weight: 800; line-height: 1; }
+    .metric .label { font-size: 11px; color: #64748b; margin-top: 5px;
+                      text-transform: uppercase; letter-spacing: .06em; }
+
+    /* Section card */
+    .section { background: #fff; border-radius: 12px; padding: 22px 24px;
+                margin-bottom: 22px; box-shadow: 0 1px 4px rgba(0,0,0,.07); }
+    .section h2 { font-size: 17px; font-weight: 700; margin-bottom: 14px; color: #0f172a; }
+
+    /* Filter toolbar */
+    .filter-bar { display: flex; gap: 8px; flex-wrap: wrap; margin-bottom: 18px; align-items: center; }
+    .fbtn {
+      display: inline-flex; align-items: center; gap: 5px;
+      padding: 5px 14px; border-radius: 20px; font-size: 12px; font-weight: 600;
+      cursor: pointer; border: 1px solid #cbd5e1; background: #f8fafc;
+      color: #64748b; transition: all .15s;
+    }
+    .fbtn:hover { border-color: #94a3b8; color: #1e293b; }
+    .fbtn.active { border-color: var(--fc,#94a3b8); color: var(--ft,#1e293b);
+                   background: var(--fb,rgba(148,163,184,.12)); }
+    .fbtn[data-f="all"].active { border-color:#94a3b8;color:#0f172a;background:rgba(148,163,184,.12); }
+    .fdot  { width:7px;height:7px;border-radius:50%;flex-shrink:0; }
+    .fcount { background: rgba(0,0,0,.07); border-radius: 8px;
+               padding: 0 6px; font-size: 11px; }
+    #findings-count { font-size:13px; color:#64748b; margin-left:auto; }
+
+    /* Finding card */
+    .finding-card {
+      border: 1px solid #e2e8f0;
+      border-left-width: 3px;
+      border-radius: 10px;
+      margin-bottom: 10px;
+      overflow: hidden;
+      transition: box-shadow .15s;
+    }
+    .finding-card:hover { box-shadow: 0 4px 16px rgba(0,0,0,.09); }
+    .finding-row {
+      display: flex; align-items: center; gap: 12px;
+      padding: 13px 14px;
+    }
+    .finding-title { font-weight: 600; flex: 1; font-size: 13px; color: #0f172a; }
+    .finding-cat   { font-size: 11px; color: #64748b; white-space: nowrap; }
+
+    /* Chevron button */
+    .chevron-btn {
+      width: 28px; height: 28px; border-radius: 6px;
+      cursor: pointer; font-size: 11px; flex-shrink: 0;
+      display: flex; align-items: center; justify-content: center;
+      transition: transform .2s, background .15s;
+    }
+    .chevron-btn.open { transform: rotate(180deg); }
+
+    /* Finding body */
+    .finding-body { display: none; padding: 0 16px 16px; border-top: 1px solid #e2e8f0; }
+    .finding-body.open { display: block; }
+
+    .detail-row   { margin-bottom: 10px; }
+    .detail-label { font-size: 10px; text-transform: uppercase; letter-spacing: .07em;
+                     color: #94a3b8; margin-bottom: 3px; font-weight: 600; }
+    .detail-val   { font-size: 13px; color: #334155; line-height: 1.6; }
+    .detail-val a { color: #2563eb; text-decoration: none; }
+    .detail-val a:hover { text-decoration: underline; }
+    .fix-val      { color: #15803d; }
+
+    .evidence-box {
+      display: block; background: #f8fafc; border: 1px solid #e2e8f0;
+      border-radius: 6px; padding: 8px 10px;
+      font-family: 'Courier New', monospace; font-size: 11px;
+      color: #0f5132; word-break: break-all;
+    }
+    .code-block {
+      display: block; background: #1e1e2e; color: #cdd6f4;
+      border-radius: 7px; padding: 12px; margin-top: 8px;
+      font-family: 'Courier New', monospace; font-size: 12px;
+      white-space: pre-wrap; overflow-x: auto;
+    }
+    .tag-row    { display: flex; gap: 7px; flex-wrap: wrap; margin-top: 10px; }
+    .chip-owasp { background: #dbeafe; color: #1d4ed8; padding: 2px 8px;
+                   border-radius: 5px; font-size: 11px; font-family: monospace; }
+    .chip-cwe   { background: #f0fdf4; color: #15803d; padding: 2px 8px;
+                   border-radius: 5px; font-size: 11px; font-family: monospace; }
+
+    ul { padding-left: 20px; line-height: 2.1; color: #475569; }
+  </style>
+</head>
+<body>
+
+<div class="header">
+  <h1>&#128737; Security Scan Report</h1>
+  <p>Target: <strong style="color:#e2e8f0">{{ target }}</strong>
+     &nbsp;|&nbsp; Scan ID: {{ scan_id }}
+     &nbsp;|&nbsp; {{ started }} UTC</p>
+</div>
+
+<div class="container">
+
+  <!-- Metric cards -->
+  <div class="metrics">
+    <div class="metric">
+      <div class="num" style="color:{{ risk_color }}; font-size: 24px; padding-top: 3px; padding-bottom: 3px;">{{ overall_risk }}</div>
+      <div class="label">Overall Risk</div>
+    </div>
+    <div class="metric">
+      <div class="num" style="color:#0f172a">{{ total }}</div>
+      <div class="label">Total Findings</div>
+    </div>
+    <div class="metric">
+      <div class="num" style="color:#ef4444">{{ num_critical }}</div>
+      <div class="label">Critical</div>
+    </div>
+    <div class="metric">
+      <div class="num" style="color:#f97316">{{ num_high }}</div>
+      <div class="label">High</div>
+    </div>
+    <div class="metric">
+      <div class="num" style="color:#eab308">{{ num_medium }}</div>
+      <div class="label">Medium</div>
+    </div>
+    <div class="metric">
+      <div class="num" style="color:#3b82f6">{{ num_low }}</div>
+      <div class="label">Low</div>
+    </div>
+    <div class="metric">
+      <div class="num" style="color:#6b7280">{{ num_info }}</div>
+      <div class="label">Info</div>
+    </div>
+    <div class="metric">
+      <div class="num" style="color:#0f172a">{{ pages }}</div>
+      <div class="label">Pages Scanned</div>
+    </div>
+  </div>
+
+  <!-- Executive summary -->
+  {% if summary_exec %}
+  <div class="section">
+      <h2>Executive Summary</h2>
+      <p style="color:#475569;line-height:1.8">{{ summary_exec }}</p>
+  </div>
+  {% endif %}
+
+  <!-- Key findings & actions -->
+  {% if kf_html or act_html %}
+  <div class="section">
+    <h2>Key Findings &amp; Immediate Actions</h2>
+    <div style="display:grid;grid-template-columns:1fr 1fr;gap:24px">
+      <div>
+        <h3 style="font-size:13px;color:#ef4444;text-transform:uppercase;letter-spacing:.06em;margin-bottom:8px">Key Findings</h3>
+        <ul>{{ kf_html|safe }}</ul>
+      </div>
+      <div>
+        <h3 style="font-size:13px;color:#15803d;text-transform:uppercase;letter-spacing:.06em;margin-bottom:8px">Immediate Actions</h3>
+        <ul>{{ act_html|safe }}</ul>
+      </div>
+    </div>
+  </div>
+  {% endif %}
+
+  <!-- Findings section -->
+  <div class="section">
+    <h2>Findings ({{ total }})</h2>
+
+    <!-- Filter bar -->
+    <div class="filter-bar">
+      {{ filter_btns|safe }}
+      <span id="findings-count">{{ total }} of {{ total }} shown</span>
+    </div>
+
+    <!-- Cards -->
+    <div id="cards-container">
+      {% if cards %}
+        {{ cards|safe }}
+      {% else %}
+        <p style="color:#64748b">No findings recorded.</p>
+      {% endif %}
+    </div>
+  </div>
+
+  <p style="text-align:center;color:#94a3b8;font-size:12px;margin-top:16px;padding-bottom:32px">
+    {{ finished }} UTC
+  </p>
+</div>
+
+<script>
+  // ── Filter ────────────────────────────────────────────────────────────────
+  function filter(btn) {
+    document.querySelectorAll('.fbtn').forEach(b => b.classList.remove('active'));
+    btn.classList.add('active');
+    const f = btn.dataset.f;
+    const cards = document.querySelectorAll('.finding-card');
+    let shown = 0;
+    cards.forEach(c => {
+      const match = f === 'all' || c.dataset.sev === f;
+      c.style.display = match ? '' : 'none';
+      if (match) shown++;
+    });
+    document.getElementById('findings-count').textContent =
+      shown + ' of {{ total }} shown';
+  }
+
+  // ── Accordion (chevron button only) ───────────────────────────────────────
+  function toggleCard(btn) {
+    const body = btn.closest('.finding-card').querySelector('.finding-body');
+    const open = body.classList.toggle('open');
+    btn.classList.toggle('open', open);
+    btn.innerHTML = open ? '&#9650;' : '&#9660;';
+  }
+</script>
+</body>
+</html>
